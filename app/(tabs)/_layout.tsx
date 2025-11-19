@@ -37,6 +37,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="agenda"
+        options={{
+          title: 'Agenda',
+          tabBarIcon: ({ focused }) => (
+            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: focused ? '#f9a8d4' : '#fce7f3' }} />
+          ),
+        }}
+      />
     </Tabs>
   )
 }
