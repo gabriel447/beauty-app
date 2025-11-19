@@ -184,6 +184,10 @@ export default function AgendaTab() {
     return blocks
   }, [eventsBusinessHours, selected?.id, selectedDate, mockSlotsByProfDate])
 
+  const visibleEvents = useMemo(() => {
+    return [...displayEvents].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+  }, [displayEvents])
+
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
       <View style={{ paddingHorizontal: 16 }}>
@@ -269,39 +273,46 @@ export default function AgendaTab() {
             ))}
           </View>
         </View>
-        <View style={{ flex: 1, marginTop: 16, paddingTop: 16, paddingHorizontal: 16, backgroundColor: '#f9a8d4', borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
-          <Text style={{ color: '#111827', fontWeight: '700', marginBottom: 12 }}>Eventos</Text>
+        <View style={{ flex: 1, marginTop: 16, paddingTop: 12, paddingHorizontal: 16, backgroundColor: '#f9a8d4', borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ color: '#111827', fontWeight: '700' }}>Eventos</Text>
+          </View>
           {(!selected) ? (
             <Text style={{ color: '#111827' }}>Nenhum evento para o dia selecionado</Text>
           ) : (
             (() => {
-              const allFree = displayEvents.length > 0 && displayEvents.every((ev) => ev.status === 'available')
-              if (displayEvents.length === 0 || allFree) {
+              if (visibleEvents.length === 0) {
                 const isToday = new Date().toDateString() === selectedDate.toDateString()
                 return (
-                  <Text style={{ color: '#111827' }}>{isToday ? 'Não temos eventos marcados para hoje ainda.' : 'Não temos eventos marcados para o dia selecionado.'}</Text>
+                  <Text style={{ color: '#ffffffff' }}>{isToday ? 'Não temos nada marcado para hoje ainda.' : 'Não temos nada marcado ainda para o dia selecionado.'}</Text>
                 )
               }
               return (
                 <FlatList
-                data={displayEvents}
+                data={visibleEvents}
                 keyExtractor={(ev) => String(ev.id)}
                 renderItem={({ item: ev }) => {
                   const start = new Date(ev.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                   const end = new Date(ev.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                   const status = ev.status
                   const booking = bookingsBySlot[String(ev.id)]
-                  const isFree = (!booking && status !== 'blocked')
+                  const isFree = (!booking && status !== 'blocked' && status !== 'reserved')
                   const isMock = String(ev.id).startsWith('mock')
                   const mockName = isMock ? mockServiceBySlot[String(ev.id)] : undefined
                   const serviceName = booking
                     ? (servicesMap[String(booking.service_id)]?.name || 'Reservado')
                     : (status === 'blocked' ? 'Bloqueado' : (mockName || 'Livre'))
-                  const textColor = isFree && !mockName ? '#ffffff' : '#111827'
+                  const leftColor = status === 'blocked' ? '#991b1b' : '#111827'
+                  const cardBg = isFree ? '#f9fafb' : (status === 'blocked' ? '#fee2e2' : '#ffffff')
+                  const cardBorder = isFree ? '#e5e7eb' : (status === 'blocked' ? '#fca5a5' : (booking ? '#fce7f3' : '#e5e7eb'))
+                  const timeChipBg = '#f3f4f6'
+                  const timeChipColor = '#374151'
                   return (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                      <Text style={{ color: textColor, flex: 1 }}>{serviceName}</Text>
-                      <Text style={{ color: textColor }}>{start} às {end}</Text>
+                    <View style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={{ color: leftColor, fontSize: 13, flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{serviceName}</Text>
+                      <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: timeChipBg }}>
+                        <Text style={{ color: timeChipColor, fontSize: 12 }}>{start} às {end}</Text>
+                      </View>
                     </View>
                   )
                 }}
