@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { View, Text, FlatList, TextInput, TouchableOpacity } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export default function ServicesTab() {
   const [allServices, setAllServices] = useState<Service[]>([])
-  const [query, setQuery] = useState('')
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   useEffect(() => {
     const load = async () => {
@@ -73,22 +72,13 @@ export default function ServicesTab() {
       setFavorites(new Set(next))
     } catch {}
   }
-  const lower = query.toLowerCase()
-  const base = allServices.filter((s) => s.name.toLowerCase().includes(lower))
+  const base = allServices
   const popular = base.filter((s) => s.tags?.includes('popular')).slice(0, 2)
   const novo = base.filter((s) => s.tags?.includes('novo')).slice(0, 2)
   const others = base.filter((s) => !(s.tags?.includes('popular') || s.tags?.includes('novo'))).slice(0, Math.max(0, 8 - popular.length - novo.length))
   const services = [...popular, ...novo, ...others]
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff', padding: 16 }}>
-      <View style={{ marginBottom: 12 }}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar serviços"
-          style={{ height: 34, paddingHorizontal: 10, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#ffffff' }}
-        />
-      </View>
       <FlatList
         data={services}
         keyExtractor={(s) => String(s.id)}

@@ -9,7 +9,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerTitleAlign: 'left' }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="professionals/[id]" options={{ title: 'Profissional' }} />
-        <Stack.Screen name="booking/index" options={{ title: 'Agendar' }} />
+        <Stack.Screen name="reserve/index" options={{ title: 'Reserva' }} />
       </Stack>
     </SafeAreaView>
   )

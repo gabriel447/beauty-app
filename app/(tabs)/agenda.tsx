@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, FlatList, TouchableOpacity, Dimensions, Image } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal } from 'react-native'
+import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { AvailabilitySlot, Professional, Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -16,6 +17,7 @@ export default function AgendaTab() {
   const [bookingsBySlot, setBookingsBySlot] = useState<Record<string, any>>({})
   const [mockSlotsByProfDate, setMockSlotsByProfDate] = useState<Record<string, AvailabilitySlot[]>>({})
   const [mockServiceBySlot, setMockServiceBySlot] = useState<Record<string, string>>({})
+  const [pendingReserve, setPendingReserve] = useState<AvailabilitySlot | null>(null)
   const BUSINESS_START_HOUR = 8
   const BUSINESS_END_HOUR = 20
 
@@ -273,7 +275,7 @@ export default function AgendaTab() {
             ))}
           </View>
         </View>
-        <View style={{ flex: 1, marginTop: 16, paddingTop: 12, paddingHorizontal: 16, backgroundColor: '#f9a8d4', borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+        <View style={{ flex: 1, marginTop: 16, paddingTop: 12, paddingHorizontal: 16, backgroundColor: '#f3f4f6', borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <Text style={{ color: '#111827', fontWeight: '700' }}>Eventos</Text>
           </View>
@@ -303,17 +305,20 @@ export default function AgendaTab() {
                     ? (servicesMap[String(booking.service_id)]?.name || 'Reservado')
                     : (status === 'blocked' ? 'Bloqueado' : (mockName || 'Livre'))
                   const leftColor = status === 'blocked' ? '#991b1b' : '#111827'
-                  const cardBg = isFree ? '#f9fafb' : (status === 'blocked' ? '#fee2e2' : '#ffffff')
-                  const cardBorder = isFree ? '#e5e7eb' : (status === 'blocked' ? '#fca5a5' : (booking ? '#fce7f3' : '#e5e7eb'))
-                  const timeChipBg = '#f3f4f6'
-                  const timeChipColor = '#374151'
+                  const cardBg = isFree ? '#fde7f3' : (status === 'blocked' ? '#fee2e2' : '#ffffff')
+                  const cardBorder = isFree ? '#fbcfe8' : (status === 'blocked' ? '#fca5a5' : (booking ? '#fce7f3' : '#e5e7eb'))
+                  const timeChipBg = isFree ? '#fde7f3' : 'transparent'
+                  const timeChipColor = isFree ? '#ec4899' : '#374151'
                   return (
-                    <View style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                      <Text style={{ color: leftColor, fontSize: 13, flex: 1 }} numberOfLines={1} ellipsizeMode="tail">{serviceName}</Text>
+                    <TouchableOpacity disabled={!isFree} activeOpacity={1} onPress={() => setPendingReserve(ev)} style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ color: leftColor, fontSize: 13, flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">{serviceName}</Text>
+                        {isFree && (<ClickIcon />)}
+                      </View>
                       <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: timeChipBg }}>
                         <Text style={{ color: timeChipColor, fontSize: 12 }}>{start} às {end}</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   )
                 }}
                 ListEmptyComponent={<Text style={{ color: '#111827' }}>Nenhum evento para o dia selecionado</Text>}
@@ -324,7 +329,51 @@ export default function AgendaTab() {
             })()
           )}
         </View>
+        <Modal visible={!!pendingReserve} transparent animationType="fade" onRequestClose={() => setPendingReserve(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: '86%', backgroundColor: '#ffffff', borderRadius: 12, padding: 16 }}>
+              {pendingReserve && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontWeight: '600', fontSize: 16, marginBottom: 6 }}>Confirmar reserva</Text>
+                  <Text style={{ color: '#374151' }}>Deseja reservar das {new Date(pendingReserve.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} às {new Date(pendingReserve.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}?</Text>
+                </View>
+              )}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <TouchableOpacity onPress={() => setPendingReserve(null)} style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f3f4f6', marginRight: 8 }}>
+                  <Text>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {
+                  try {
+                    const s = pendingReserve
+                    setPendingReserve(null)
+                    if (s && selected) {
+                      router.push({
+                        pathname: '/reserve',
+                        params: {
+                          slot_id: String(s.id),
+                          start: s.start_time,
+                          end: s.end_time,
+                          professional_id: String(s.professional_id),
+                        },
+                      })
+                    }
+                  } catch {}
+                }} style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#ec4899' }}>
+                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>Continuar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </View>
   )
 }
+  const ClickIcon = () => (
+    <View style={{ width: 16, height: 16, marginLeft: 6 }}>
+      <View style={{ position: 'absolute', top: 1, left: 7, width: 3, height: 9, backgroundColor: '#ec4899', borderRadius: 2 }} />
+      <View style={{ position: 'absolute', bottom: 1, left: 3, width: 10, height: 8, backgroundColor: '#f9a8d4', borderRadius: 6 }} />
+      <View style={{ position: 'absolute', top: 0, left: 2, width: 3, height: 3, backgroundColor: '#ec4899', borderRadius: 3 }} />
+      <View style={{ position: 'absolute', top: 0, right: 2, width: 3, height: 3, backgroundColor: '#ec4899', borderRadius: 3 }} />
+    </View>
+  )
