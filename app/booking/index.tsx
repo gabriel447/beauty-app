@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { Professional, Service, AvailabilitySlot } from '@/types'
 import ServiceSelector from '@/components/ServiceSelector'
 import RealtimeSchedule from '@/components/RealtimeSchedule'
+import ProfessionalCard from '@/components/ProfessionalCard'
 
 export default function BookingFlow() {
   const [step, setStep] = useState<number>(1)
@@ -54,9 +55,8 @@ export default function BookingFlow() {
       {step === 1 && (
         <ImageBackground source={require('../../imgs/2150771294.jpg')} style={{ flex: 1 }}>
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' }} />
-          <View style={{ flex: 1, justifyContent: 'flex-end', padding: 16 }}>
+                  <View style={{ flex: 1, justifyContent: 'center', padding: 16 }}>
             <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16 }}>
-              <Text style={{ fontSize: 20, fontWeight: '600', marginBottom: 8 }}>Selecione o serviço</Text>
               {!showServices && (
                 <TouchableOpacity style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#ec4899', borderRadius: 12, alignSelf: 'flex-start' }} onPress={() => setShowServices(true)}>
                   <Text style={{ color: '#ffffff', fontWeight: '600' }}>Escolher serviço</Text>
@@ -76,16 +76,10 @@ export default function BookingFlow() {
                 data={professionals}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' }}
-                    onPress={() => {
-                      setProfessional(item)
-                      setStep(3)
-                    }}
-                  >
-                    <Text style={{ fontSize: 16 }}>{item.name}</Text>
-                    <Text style={{ color: '#4b5563' }}>{item.specialties?.join(', ')}</Text>
-                  </TouchableOpacity>
+                  <ProfessionalCard
+                    professional={item}
+                    onPress={() => { setProfessional(item); setStep(3) }}
+                  />
                 )}
               />
               <TouchableOpacity style={{ marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f3f4f6', borderRadius: 8 }} onPress={() => setStep(1)}>
