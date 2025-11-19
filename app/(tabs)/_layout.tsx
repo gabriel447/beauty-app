@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router'
-import { View, Text } from 'react-native'
+import { View } from 'react-native'
 
 export default function TabsLayout() {
   return (
@@ -23,6 +23,7 @@ export default function TabsLayout() {
         name="profiles"
         options={{
           title: 'Profissionais',
+          headerTitleStyle: { fontSize: 18 },
           tabBarIcon: ({ focused }) => (
             <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: focused ? '#f9a8d4' : '#fce7f3' }} />
           ),

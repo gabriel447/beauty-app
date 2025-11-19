@@ -3,7 +3,6 @@ import { View, Text, FlatList, TouchableOpacity, Dimensions, Image } from 'react
 import { supabase } from '@/lib/supabase'
 import { AvailabilitySlot, Professional, Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import ProfessionalCard from '@/components/ProfessionalCard'
 
 export default function AgendaTab() {
   const [professionals, setProfessionals] = useState<Professional[]>([])

@@ -12,18 +12,32 @@ export default function ServicesTab() {
     const load = async () => {
       const { data } = await supabase.from('services').select('*')
       const rows = (data || []) as Service[]
-      const hasPopular = rows.some((s) => s.tags?.includes('popular'))
-      const hasNovo = rows.some((s) => s.tags?.includes('novo'))
-      const hasPromocao = rows.some((s) => s.tags?.includes('promocao'))
-      const ensureTag = (index: number, tag: string) => {
-        const s = rows[index]
-        if (!s) return
-        s.tags = Array.isArray(s.tags) ? s.tags : []
-        if (!s.tags.includes(tag)) s.tags.push(tag)
+      const pickIndex = (tag: string): number | null => {
+        const idx = rows.findIndex((s) => Array.isArray(s.tags) && s.tags.includes(tag))
+        return idx >= 0 ? idx : null
       }
-      if (!hasPopular) ensureTag(0, 'popular')
-      if (!hasNovo) ensureTag(rows.length > 1 ? 1 : 0, 'novo')
-      if (!hasPromocao) ensureTag(rows.length > 2 ? 2 : rows.length > 1 ? 1 : 0, 'promocao')
+      const ensureUniqueIndices = () => {
+        const indices: number[] = []
+        const pushIf = (n: number | null) => { if (n !== null && !indices.includes(n)) indices.push(n) }
+        pushIf(pickIndex('popular'))
+        pushIf(pickIndex('novo'))
+        pushIf(pickIndex('promocao'))
+        for (let i = 0; i < rows.length && indices.length < 3; i++) {
+          if (!indices.includes(i)) indices.push(i)
+        }
+        const [popIdx, novoIdx, promoIdx] = [indices[0] ?? null, indices[1] ?? null, indices[2] ?? null]
+        return { popIdx, novoIdx, promoIdx }
+      }
+      const { popIdx, novoIdx, promoIdx } = ensureUniqueIndices()
+      const special = new Set(['popular', 'novo', 'promocao'])
+      rows.forEach((s, i) => {
+        const base = Array.isArray(s.tags) ? s.tags.filter((t) => !special.has(t)) : []
+        const next: string[] = [...base]
+        if (i === popIdx) next.push('popular')
+        if (i === novoIdx) next.push('novo')
+        if (i === promoIdx) next.push('promocao')
+        s.tags = next
+      })
       rows.sort((a, b) => {
         const rank = (s: Service) => (s.tags?.includes('popular') ? 0 : s.tags?.includes('novo') ? 1 : 2)
         const ra = rank(a)
@@ -72,37 +86,37 @@ export default function ServicesTab() {
           value={query}
           onChangeText={setQuery}
           placeholder="Buscar serviços"
-          style={{ height: 36, paddingHorizontal: 12, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#ffffff' }}
+          style={{ height: 34, paddingHorizontal: 10, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, backgroundColor: '#ffffff' }}
         />
       </View>
       <FlatList
         data={services}
         keyExtractor={(s) => String(s.id)}
         renderItem={({ item }) => (
-          <View style={{ paddingVertical: 16, paddingLeft: 12, paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ paddingVertical: 12, paddingLeft: 12, paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={() => toggleFavorite(item.id)} style={{ marginRight: 8 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: favorites.has(String(item.id)) ? '#fef3c7' : '#f3f4f6' }}>
-                <Text style={{ color: favorites.has(String(item.id)) ? '#f59e0b' : '#9ca3af' }}>★</Text>
+              <View style={{ width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: favorites.has(String(item.id)) ? '#fef3c7' : '#f3f4f6' }}>
+                <Text style={{ color: favorites.has(String(item.id)) ? '#f59e0b' : '#9ca3af', fontSize: 12 }}>★</Text>
               </View>
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap' }}>
-              <Text style={{ fontSize: 16, fontWeight: '500', flexShrink: 1, marginRight: 8, maxWidth: '55%' }} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
-              <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
-                <Text style={{ color: '#6b7280' }}>{Math.round(item.duration_min)} min</Text>
+              <Text style={{ fontSize: 14, fontWeight: '500', flexShrink: 1, marginRight: 8, maxWidth: '55%' }} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+              <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                <Text style={{ color: '#6b7280', fontSize: 12 }}>{Math.round(item.duration_min)} min</Text>
               </View>
               {item.tags?.includes('popular') && (
-                <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
-                  <Text style={{ color: '#be185d' }}>🔥 Popular</Text>
+                <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                  <Text style={{ color: '#ec4899', fontSize: 12 }}>🔥 Popular</Text>
                 </View>
               )}
               {item.tags?.includes('novo') && (
-                <View style={{ marginRight: 8, backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
-                  <Text style={{ color: '#f59e0b' }}>⭐️ Novidade</Text>
+                <View style={{ marginRight: 8, backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                  <Text style={{ color: '#f59e0b', fontSize: 12 }}>⭐️ Novidade</Text>
                 </View>
               )}
               {item.tags?.includes('promocao') && (
-                <View style={{ marginRight: 8, backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
-                  <Text style={{ color: '#16a34a' }}>💰 Promoção</Text>
+                <View style={{ marginRight: 8, backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                  <Text style={{ color: '#16a34a', fontSize: 12 }}>💰 Promoção</Text>
                 </View>
               )}
             </View>
