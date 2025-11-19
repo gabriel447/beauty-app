@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { View, Text, FlatList, TextInput } from 'react-native'
+import { View, Text, FlatList, TextInput, TouchableOpacity } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export default function ServicesTab() {
   const [allServices, setAllServices] = useState<Service[]>([])
   const [query, setQuery] = useState('')
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase.from('services').select('*')
@@ -33,6 +35,30 @@ export default function ServicesTab() {
     }
     load()
   }, [])
+
+  useEffect(() => {
+    const loadFav = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('favorites_services')
+        const arr: string[] = raw ? JSON.parse(raw) : []
+        setFavorites(new Set(arr.map(String)))
+      } catch {}
+    }
+    loadFav()
+  }, [])
+
+  const toggleFavorite = async (id: string | number) => {
+    try {
+      const raw = await AsyncStorage.getItem('favorites_services')
+      const arr: string[] = raw ? JSON.parse(raw) : []
+      const set = new Set(arr.map(String))
+      const key = String(id)
+      set.has(key) ? set.delete(key) : set.add(key)
+      const next = Array.from(set)
+      await AsyncStorage.setItem('favorites_services', JSON.stringify(next))
+      setFavorites(new Set(next))
+    } catch {}
+  }
   const lower = query.toLowerCase()
   const base = allServices.filter((s) => s.name.toLowerCase().includes(lower))
   const popular = base.filter((s) => s.tags?.includes('popular')).slice(0, 2)
@@ -53,27 +79,32 @@ export default function ServicesTab() {
         data={services}
         keyExtractor={(s) => String(s.id)}
         renderItem={({ item }) => (
-          <View style={{ paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '500', maxWidth: '60%' }} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+          <View style={{ paddingVertical: 16, paddingLeft: 12, paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => toggleFavorite(item.id)} style={{ marginRight: 8 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: favorites.has(String(item.id)) ? '#fef3c7' : '#f3f4f6' }}>
+                <Text style={{ color: favorites.has(String(item.id)) ? '#f59e0b' : '#9ca3af' }}>★</Text>
+              </View>
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap' }}>
+              <Text style={{ fontSize: 16, fontWeight: '500', flexShrink: 1, marginRight: 8, maxWidth: '55%' }} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
+              <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
+                <Text style={{ color: '#6b7280' }}>{Math.round(item.duration_min)} min</Text>
+              </View>
               {item.tags?.includes('popular') && (
-                <View style={{ marginLeft: 8, backgroundColor: '#fde7f3', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
+                <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
                   <Text style={{ color: '#be185d' }}>🔥 Popular</Text>
                 </View>
               )}
               {item.tags?.includes('novo') && (
-                <View style={{ marginLeft: 8, backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
+                <View style={{ marginRight: 8, backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
                   <Text style={{ color: '#f59e0b' }}>⭐️ Novidade</Text>
                 </View>
               )}
               {item.tags?.includes('promocao') && (
-                <View style={{ marginLeft: 8, backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
+                <View style={{ marginRight: 8, backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
                   <Text style={{ color: '#16a34a' }}>💰 Promoção</Text>
                 </View>
               )}
-              <View style={{ marginLeft: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
-                <Text style={{ color: '#6b7280' }}>{Math.round(item.duration_min)} min</Text>
-              </View>
             </View>
           </View>
         )}

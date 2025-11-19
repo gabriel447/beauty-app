@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, FlatList, ImageBackground } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
 import { Professional, Service, AvailabilitySlot } from '@/types'
 import ServiceSelector from '@/components/ServiceSelector'
@@ -28,6 +29,7 @@ export default function BookingFlow() {
   }, [professional])
 
   const [professionals, setProfessionals] = useState<Professional[]>([])
+  const [favProfessionals, setFavProfessionals] = useState<Set<string>>(new Set())
   useEffect(() => {
     const loadProfessionals = async () => {
       let query = supabase.from('professionals').select('*')
@@ -35,7 +37,18 @@ export default function BookingFlow() {
         query = query.contains('specialties', [service.name])
       }
       const { data } = await query
-      setProfessionals(data || [])
+      const rows = (data || []) as Professional[]
+      const raw = await AsyncStorage.getItem('favorites_professionals')
+      const arr: string[] = raw ? JSON.parse(raw) : []
+      const favs = new Set(arr.map(String))
+      setFavProfessionals(favs)
+      rows.sort((a, b) => {
+        const fa = favs.has(String(a.id)) ? 0 : 1
+        const fb = favs.has(String(b.id)) ? 0 : 1
+        if (fa !== fb) return fa - fb
+        return a.name.localeCompare(b.name)
+      })
+      setProfessionals(rows)
     }
     loadProfessionals()
   }, [service])
@@ -58,7 +71,7 @@ export default function BookingFlow() {
                   <View style={{ flex: 1, justifyContent: 'center', padding: 16 }}>
             <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16 }}>
               {!showServices && (
-                <TouchableOpacity style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#ec4899', borderRadius: 12, alignSelf: 'flex-start' }} onPress={() => setShowServices(true)}>
+                <TouchableOpacity style={{ paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#ec4899', borderRadius: 12, alignSelf: 'flex-start' }} onPress={() => setShowServices(true)}>
                   <Text style={{ color: '#ffffff', fontWeight: '600' }}>Escolher serviço</Text>
                 </TouchableOpacity>
               )}
@@ -72,16 +85,17 @@ export default function BookingFlow() {
           {step === 2 && (
             <View style={{ flex: 1, backgroundColor: '#ffffff', padding: 16 }}>
               <Text style={{ fontSize: 20, fontWeight: '600', marginBottom: 8 }}>Escolha o profissional</Text>
-              <FlatList
-                data={professionals}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                  <ProfessionalCard
-                    professional={item}
-                    onPress={() => { setProfessional(item); setStep(3) }}
-                  />
-                )}
-              />
+        <FlatList
+          data={professionals}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <ProfessionalCard
+              professional={item}
+              showFavorite={false}
+              onPress={() => { setProfessional(item); setStep(3) }}
+            />
+          )}
+        />
               <TouchableOpacity style={{ marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f3f4f6', borderRadius: 8 }} onPress={() => setStep(1)}>
                 <Text>Voltar</Text>
               </TouchableOpacity>

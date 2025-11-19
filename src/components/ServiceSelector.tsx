@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, FlatList, TextInput } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
 import { Service } from '@/types'
 
@@ -11,6 +12,7 @@ type Props = {
 export default function ServiceSelector({ value, onChange }: Props) {
   const [services, setServices] = useState<Service[]>([])
   const [query, setQuery] = useState('')
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const formatBRL = (cents: number) => {
     const value = cents / 100
     return `R$ ${value.toFixed(2).replace('.', ',')}`
@@ -22,11 +24,27 @@ export default function ServiceSelector({ value, onChange }: Props) {
     }
     load()
   }, [])
+  useEffect(() => {
+    const loadFavs = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('favorites_services')
+        const arr: string[] = raw ? JSON.parse(raw) : []
+        setFavorites(new Set(arr.map(String)))
+      } catch {}
+    }
+    loadFavs()
+  }, [])
   const items = services
     .filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => {
+      const fa = favorites.has(String(a.id)) ? 0 : 1
+      const fb = favorites.has(String(b.id)) ? 0 : 1
+      if (fa !== fb) return fa - fb
+      return a.name.localeCompare(b.name)
+    })
   return (
     <View style={{ alignItems: 'center' }}>
-      <View style={{ width: '92%', paddingTop: 8, paddingBottom: 12 }}>
+      <View style={{ width: '92%', paddingTop: 8, paddingBottom: 16 }}>
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -38,23 +56,24 @@ export default function ServiceSelector({ value, onChange }: Props) {
         data={items}
         keyExtractor={(s) => String(s.id)}
         keyboardShouldPersistTaps="handled"
-        style={{ width: '92%', maxHeight: 420 }}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        style={{ width: '92%', maxHeight: 440 }}
+        contentContainerStyle={{ paddingBottom: 28 }}
         showsVerticalScrollIndicator
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={{ paddingVertical: 14, paddingLeft: 0, paddingRight: 20, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', backgroundColor: value?.id === item.id ? '#fff1f5' : '#ffffff' }}
+            style={{ paddingVertical: 16, paddingLeft: 12, paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb', backgroundColor: value?.id === item.id ? '#fff1f5' : '#ffffff' }}
             onPress={() => onChange(item)}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ marginRight: 8, color: favorites.has(String(item.id)) ? '#f59e0b' : '#9ca3af' }}>★</Text>
               <Text
-                style={{ fontSize: 15, fontWeight: '600', maxWidth: '60%' }}
+                style={{ fontSize: 15, fontWeight: '600', flex: 1, flexShrink: 1, marginRight: 8 }}
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
                 {item.name}
               </Text>
-              <Text style={{ marginLeft: 'auto', fontSize: 15, fontWeight: '600', color: '#9ca3af' }}>{formatBRL(item.price_cents)}</Text>
+              <Text style={{ textAlign: 'right', fontSize: 15, fontWeight: '600', color: '#9ca3af' }}>{formatBRL(item.price_cents)}</Text>
             </View>
           </TouchableOpacity>
         )}
