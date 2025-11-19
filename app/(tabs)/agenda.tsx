@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal, TextInput } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { AvailabilitySlot, Professional, Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+ 
 
 export default function AgendaTab() {
   const [professionals, setProfessionals] = useState<Professional[]>([])
@@ -18,6 +19,21 @@ export default function AgendaTab() {
   const [mockSlotsByProfDate, setMockSlotsByProfDate] = useState<Record<string, AvailabilitySlot[]>>({})
   const [mockServiceBySlot, setMockServiceBySlot] = useState<Record<string, string>>({})
   const [pendingReserve, setPendingReserve] = useState<AvailabilitySlot | null>(null)
+  const [reserveServiceName, setReserveServiceName] = useState('')
+  const [reserveName, setReserveName] = useState('')
+  const [reserveEmail, setReserveEmail] = useState('')
+  const [reservePhone, setReservePhone] = useState('')
+  
+  const formatPhone = (input: string) => {
+    const digits = input.replace(/\D/g, '')
+    const d = digits.slice(0, 11)
+    const part1 = d.slice(0, 2)
+    const part2 = d.length > 6 ? d.slice(2, 7) : d.slice(2)
+    const part3 = d.length > 6 ? d.slice(7) : ''
+    return d.length <= 2 ? part1 : d.length <= 7 ? `(${part1}) ${part2}` : `(${part1}) ${part2}-${part3}`
+  }
+  const onPhoneChange = (t: string) => setReservePhone(formatPhone(t))
+  const isEmailValid = (e: string) => /.+@.+\..+/.test(e)
   const BUSINESS_START_HOUR = 8
   const BUSINESS_END_HOUR = 20
 
@@ -310,10 +326,9 @@ export default function AgendaTab() {
                   const timeChipBg = isFree ? '#fde7f3' : 'transparent'
                   const timeChipColor = isFree ? '#ec4899' : '#374151'
                   return (
-                    <TouchableOpacity disabled={!isFree} activeOpacity={1} onPress={() => setPendingReserve(ev)} style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <TouchableOpacity disabled={!isFree} activeOpacity={1} onPress={() => { setPendingReserve(ev); setReserveServiceName(''); setReserveName(''); setReserveEmail(''); setReservePhone('') }} style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={{ color: leftColor, fontSize: 13, flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">{serviceName}</Text>
-                        {isFree && (<ClickIcon />)}
                       </View>
                       <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: timeChipBg }}>
                         <Text style={{ color: timeChipColor, fontSize: 12 }}>{start} às {end}</Text>
@@ -331,37 +346,55 @@ export default function AgendaTab() {
         </View>
         <Modal visible={!!pendingReserve} transparent animationType="fade" onRequestClose={() => setPendingReserve(null)}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ width: '86%', backgroundColor: '#ffffff', borderRadius: 12, padding: 16 }}>
+            <View style={{ width: '92%', backgroundColor: '#ffffff', borderRadius: 12, padding: 16, position: 'relative' }}>
               {pendingReserve && (
                 <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontWeight: '600', fontSize: 16, marginBottom: 6 }}>Confirmar reserva</Text>
-                  <Text style={{ color: '#374151' }}>Deseja reservar das {new Date(pendingReserve.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} às {new Date(pendingReserve.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}?</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 16, marginBottom: 6 }}>Reserva</Text>
+                  <Text style={{ color: '#6b7280' }}>das {new Date(pendingReserve.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} às {new Date(pendingReserve.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</Text>
                 </View>
               )}
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <TouchableOpacity onPress={() => setPendingReserve(null)} style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#f3f4f6', marginRight: 8 }}>
-                  <Text>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => {
-                  try {
-                    const s = pendingReserve
-                    setPendingReserve(null)
-                    if (s && selected) {
-                      router.push({
-                        pathname: '/reserve',
-                        params: {
-                          slot_id: String(s.id),
-                          start: s.start_time,
-                          end: s.end_time,
-                          professional_id: String(s.professional_id),
-                        },
-                      })
-                    }
-                  } catch {}
-                }} style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#ec4899' }}>
-                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>Continuar</Text>
-                </TouchableOpacity>
+              <View style={{ marginBottom: 8 }}>
+                <Text>Serviço</Text>
+                <TextInput value={reserveServiceName} onChangeText={setReserveServiceName} style={{ height: 36, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10 }} />
               </View>
+              <View style={{ marginBottom: 8 }}>
+                <Text>Nome completo</Text>
+                <TextInput value={reserveName} onChangeText={setReserveName} style={{ height: 36, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10 }} />
+              </View>
+              <View style={{ marginBottom: 8 }}>
+                <Text>Email</Text>
+                <TextInput value={reserveEmail} onChangeText={setReserveEmail} keyboardType="email-address" autoCapitalize="none" style={{ height: 36, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10 }} />
+              </View>
+              <View style={{ marginBottom: 8 }}>
+                <Text>Telefone</Text>
+                <TextInput value={reservePhone} onChangeText={onPhoneChange} keyboardType="phone-pad" style={{ height: 36, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10 }} />
+              </View>
+              {(() => {
+                const matched = Object.values(servicesMap).find((s) => s.name.toLowerCase() === reserveServiceName.trim().toLowerCase())
+                const valid = Boolean(matched && reserveName.trim().length >= 3 && isEmailValid(reserveEmail) && reservePhone.replace(/\D/g, '').length >= 10)
+                const onMark = async () => {
+                  try {
+                    if (!pendingReserve || !matched || !selected) return
+                    await supabase.from('bookings').insert({
+                      service_id: matched.id,
+                      professional_id: selected.id,
+                      slot_id: pendingReserve.id,
+                      status: 'confirmed',
+                    })
+                    setPendingReserve(null)
+                  } catch {}
+                }
+                return (
+                  <View>
+                    <TouchableOpacity disabled={!valid} onPress={onMark} style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: valid ? '#ec4899' : '#fde7f3', borderRadius: 10 }}>
+                      <Text style={{ color: valid ? '#ffffff' : '#ec4899', fontWeight: '600', textAlign: 'center' }}>Reservar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setPendingReserve(null)} style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f3f4f6', borderRadius: 10 }}>
+                      <Text style={{ color: '#111827', textAlign: 'center' }}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )
+              })()}
             </View>
           </View>
         </Modal>
@@ -369,11 +402,3 @@ export default function AgendaTab() {
     </View>
   )
 }
-  const ClickIcon = () => (
-    <View style={{ width: 16, height: 16, marginLeft: 6 }}>
-      <View style={{ position: 'absolute', top: 1, left: 7, width: 3, height: 9, backgroundColor: '#ec4899', borderRadius: 2 }} />
-      <View style={{ position: 'absolute', bottom: 1, left: 3, width: 10, height: 8, backgroundColor: '#f9a8d4', borderRadius: 6 }} />
-      <View style={{ position: 'absolute', top: 0, left: 2, width: 3, height: 3, backgroundColor: '#ec4899', borderRadius: 3 }} />
-      <View style={{ position: 'absolute', top: 0, right: 2, width: 3, height: 3, backgroundColor: '#ec4899', borderRadius: 3 }} />
-    </View>
-  )
