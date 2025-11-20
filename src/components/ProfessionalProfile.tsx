@@ -40,7 +40,7 @@ export default function ProfessionalProfile({ professional }: Props) {
         {services.map((s) => (
           <View key={String(s.id)} style={{ paddingVertical: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ fontSize: 16 }}>{s.name}</Text>
-            <Text style={{ color: '#6b7280' }}>{Math.round(s.duration_min)} min • R$ {(s.price_cents / 100).toFixed(0)}</Text>
+            <Text style={{ color: '#6b7280' }}>R$ {(s.price_cents / 100).toFixed(2).replace('.', ',')}</Text>
           </View>
         ))}
       </View>

@@ -11,9 +11,10 @@ type Props = {
   showFavoriteIcon?: boolean
   showPrice?: boolean
   fullWidth?: boolean
+  allowedNames?: string[]
 }
 
-export default function ServiceSelector({ value, onChange, showSearch = true, showFavoriteIcon = true, showPrice = true, fullWidth = false }: Props) {
+export default function ServiceSelector({ value, onChange, showSearch = true, showFavoriteIcon = true, showPrice = true, fullWidth = false, allowedNames }: Props) {
   const [services, setServices] = useState<Service[]>([])
   const [query, setQuery] = useState('')
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
@@ -39,6 +40,7 @@ export default function ServiceSelector({ value, onChange, showSearch = true, sh
     loadFavs()
   }, [])
   const items = services
+    .filter((s) => !allowedNames || allowedNames.includes(s.name))
     .filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => {
       const fa = favorites.has(String(a.id)) ? 0 : 1

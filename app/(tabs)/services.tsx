@@ -11,39 +11,6 @@ export default function ServicesTab() {
     const load = async () => {
       const { data } = await supabase.from('services').select('*')
       const rows = (data || []) as Service[]
-      const pickIndex = (tag: string): number | null => {
-        const idx = rows.findIndex((s) => Array.isArray(s.tags) && s.tags.includes(tag))
-        return idx >= 0 ? idx : null
-      }
-      const ensureUniqueIndices = () => {
-        const indices: number[] = []
-        const pushIf = (n: number | null) => { if (n !== null && !indices.includes(n)) indices.push(n) }
-        pushIf(pickIndex('popular'))
-        pushIf(pickIndex('novo'))
-        pushIf(pickIndex('promocao'))
-        for (let i = 0; i < rows.length && indices.length < 3; i++) {
-          if (!indices.includes(i)) indices.push(i)
-        }
-        const [popIdx, novoIdx, promoIdx] = [indices[0] ?? null, indices[1] ?? null, indices[2] ?? null]
-        return { popIdx, novoIdx, promoIdx }
-      }
-      const { popIdx, novoIdx, promoIdx } = ensureUniqueIndices()
-      const special = new Set(['popular', 'novo', 'promocao'])
-      rows.forEach((s, i) => {
-        const base = Array.isArray(s.tags) ? s.tags.filter((t) => !special.has(t)) : []
-        const next: string[] = [...base]
-        if (i === popIdx) next.push('popular')
-        if (i === novoIdx) next.push('novo')
-        if (i === promoIdx) next.push('promocao')
-        s.tags = next
-      })
-      rows.sort((a, b) => {
-        const rank = (s: Service) => (s.tags?.includes('popular') ? 0 : s.tags?.includes('novo') ? 1 : 2)
-        const ra = rank(a)
-        const rb = rank(b)
-        if (ra !== rb) return ra - rb
-        return a.name.localeCompare(b.name)
-      })
       setAllServices(rows)
     }
     load()
@@ -72,11 +39,24 @@ export default function ServicesTab() {
       setFavorites(new Set(next))
     } catch {}
   }
-  const base = allServices
-  const popular = base.filter((s) => s.tags?.includes('popular')).slice(0, 2)
-  const novo = base.filter((s) => s.tags?.includes('novo')).slice(0, 2)
-  const others = base.filter((s) => !(s.tags?.includes('popular') || s.tags?.includes('novo'))).slice(0, Math.max(0, 8 - popular.length - novo.length))
-  const services = [...popular, ...novo, ...others]
+  const formatCurrency = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`
+  const promoPriceCents = (s: Service) => {
+    const hasPromo = (s.tags || []).includes('promocao')
+    const discount = hasPromo ? 0.2 : 0
+    return Math.round(s.price_cents * (1 - discount))
+  }
+  const balloonTags = new Set(['popular', 'novo', 'promocao'])
+  const services = [...allServices].sort((a, b) => {
+    const balA = (a.tags || []).some((t) => balloonTags.has(t)) ? 0 : 1
+    const balB = (b.tags || []).some((t) => balloonTags.has(t)) ? 0 : 1
+    if (balA !== balB) return balA - balB
+    return a.name.localeCompare(b.name)
+  })
+  const displayTagById: Record<string, 'popular' | 'novo' | 'promocao' | null> = {}
+  services.forEach((s, i) => {
+    const d = i === 0 ? 'popular' : i === 1 ? 'novo' : i === 2 ? 'promocao' : null
+    displayTagById[String(s.id)] = d
+  })
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff', padding: 16 }}>
       <FlatList
@@ -91,24 +71,45 @@ export default function ServicesTab() {
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap' }}>
               <Text style={{ fontSize: 14, fontWeight: '500', flexShrink: 1, marginRight: 8, maxWidth: '55%' }} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
-              <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                <Text style={{ color: '#6b7280', fontSize: 12 }}>{Math.round(item.duration_min)} min</Text>
-              </View>
-              {item.tags?.includes('popular') && (
-                <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                  <Text style={{ color: '#ec4899', fontSize: 12 }}>🔥 Popular</Text>
+              {((item.tags || []).includes('promocao')) ? (
+                <>
+                  <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                    <Text style={{ color: '#6b7280', fontSize: 12, textDecorationLine: 'line-through' }}>{formatCurrency(item.price_cents)}</Text>
+                  </View>
+                  <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                    <Text style={{ color: '#ec4899', fontSize: 12 }}>{formatCurrency(promoPriceCents(item))}</Text>
+                  </View>
+                </>
+              ) : (
+                <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                  <Text style={{ color: '#6b7280', fontSize: 12 }}>{formatCurrency(item.price_cents)}</Text>
                 </View>
               )}
-              {item.tags?.includes('novo') && (
-                <View style={{ marginRight: 8, backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                  <Text style={{ color: '#f59e0b', fontSize: 12 }}>⭐️ Novidade</Text>
-                </View>
-              )}
-              {item.tags?.includes('promocao') && (
-                <View style={{ marginRight: 8, backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                  <Text style={{ color: '#16a34a', fontSize: 12 }}>💰 Promoção</Text>
-                </View>
-              )}
+              {(() => {
+                const display = displayTagById[String(item.id)]
+                if (display === 'popular') {
+                  return (
+                    <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                      <Text style={{ color: '#ec4899', fontSize: 12 }}>🔥 Popular</Text>
+                    </View>
+                  )
+                }
+                if (display === 'novo') {
+                  return (
+                    <View style={{ marginRight: 8, backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                      <Text style={{ color: '#f59e0b', fontSize: 12 }}>⭐️ Novidade</Text>
+                    </View>
+                  )
+                }
+                if (display === 'promocao') {
+                  return (
+                    <View style={{ marginRight: 8, backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                      <Text style={{ color: '#16a34a', fontSize: 12 }}>💰 Promoção</Text>
+                    </View>
+                  )
+                }
+                return null
+              })()}
             </View>
           </View>
         )}

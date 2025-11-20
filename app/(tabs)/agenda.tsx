@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal, TextInput } from 'react-native'
-import { router } from 'expo-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal, TextInput, Platform, ActionSheetIOS, Animated, Easing } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { AvailabilitySlot, Professional, Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -15,14 +14,44 @@ export default function AgendaTab() {
   const [servicesMap, setServicesMap] = useState<Record<string, Service>>({})
   const [openSelector, setOpenSelector] = useState<boolean>(false)
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
+  const [favServiceSet, setFavServiceSet] = useState<Set<string>>(new Set())
   const [bookingsBySlot, setBookingsBySlot] = useState<Record<string, any>>({})
   const [mockSlotsByProfDate, setMockSlotsByProfDate] = useState<Record<string, AvailabilitySlot[]>>({})
   const [mockServiceBySlot, setMockServiceBySlot] = useState<Record<string, string>>({})
   const [pendingReserve, setPendingReserve] = useState<AvailabilitySlot | null>(null)
-  const [reserveServiceName, setReserveServiceName] = useState('')
+  const [reserveService, setReserveService] = useState<Service | null>(null)
   const [reserveName, setReserveName] = useState('')
   const [reserveEmail, setReserveEmail] = useState('')
   const [reservePhone, setReservePhone] = useState('')
+  const [openServiceSelector, setOpenServiceSelector] = useState<boolean>(false)
+  const modalAnim = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    if (pendingReserve) {
+      modalAnim.setValue(0)
+      Animated.timing(modalAnim, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start()
+    }
+  }, [pendingReserve])
+  const closeModal = () => {
+    Animated.timing(modalAnim, { toValue: 0, duration: 180, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => setPendingReserve(null))
+  }
+  const modalAnimatedStyle = {
+    transform: [{ translateY: modalAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+    opacity: modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] })
+  }
+  
+  const availableServices = useMemo(() => {
+    const items = Object.values(servicesMap)
+    const filtered = items.filter((s) => (selected?.specialties || []).includes(s.name))
+    const list = filtered.length > 0 ? filtered : items
+    return list.sort((a, b) => a.name.localeCompare(b.name))
+  }, [servicesMap, selected?.id, selected?.specialties])
+  const formatCurrency = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`
+  const promoPriceCents = (s: Service) => {
+    const hasPromo = (s.tags || []).includes('promocao')
+    const discount = hasPromo ? 0.2 : 0 // 20% padrão
+    return Math.round(s.price_cents * (1 - discount))
+  }
+  
   
   const formatPhone = (input: string) => {
     const digits = input.replace(/\D/g, '')
@@ -43,6 +72,11 @@ export default function AgendaTab() {
       const raw = await AsyncStorage.getItem('favorites_professionals')
       const favs = new Set(((raw ? JSON.parse(raw) : []) as string[]).map(String))
       setFavSet(favs)
+      try {
+        const rawSvc = await AsyncStorage.getItem('favorites_services')
+        const svcFavs = new Set(((rawSvc ? JSON.parse(rawSvc) : []) as string[]).map(String))
+        setFavServiceSet(svcFavs)
+      } catch {}
       const rows = (data || []) as Professional[]
       rows.sort((a, b) => {
         const fa = favs.has(String(a.id)) ? 0 : 1
@@ -65,6 +99,12 @@ export default function AgendaTab() {
     }
     loadServices()
   }, [])
+
+  useEffect(() => {
+    if (!pendingReserve) return
+    const firstFav = availableServices.find((s) => favServiceSet.has(String(s.id)))
+    if (firstFav) setReserveService(firstFav)
+  }, [pendingReserve, availableServices, favServiceSet])
 
   useEffect(() => {
     if (professionals.length === 0 || Object.keys(servicesMap).length === 0) return
@@ -301,8 +341,20 @@ export default function AgendaTab() {
             (() => {
               if (visibleEvents.length === 0) {
                 const isToday = new Date().toDateString() === selectedDate.toDateString()
+                const onOpenQuickReserve = () => {
+                  if (!selected) return
+                  const start = new Date(selectedDate); start.setHours(12, 0, 0, 0)
+                  const end = new Date(selectedDate); end.setHours(13, 0, 0, 0)
+                  setPendingReserve({ id: `free-${selected.id}-${start.toISOString()}`, professional_id: selected.id, start_time: start.toISOString(), end_time: end.toISOString(), status: 'available' })
+                  setReserveService(null); setReserveName(''); setReserveEmail(''); setReservePhone('')
+                }
                 return (
-                  <Text style={{ color: '#ffffffff' }}>{isToday ? 'Não temos nada marcado para hoje ainda.' : 'Não temos nada marcado ainda para o dia selecionado.'}</Text>
+                  <View>
+                    <Text style={{ color: '#6b7280' }}>{isToday ? 'Não temos nada agendado para hoje ainda.' : 'Não temos nada agendado ainda para o dia selecionado.'}</Text>
+                    <TouchableOpacity onPress={onOpenQuickReserve} style={{ marginTop: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#ec4899', borderRadius: 8, alignSelf: 'flex-start' }}>
+                      <Text style={{ color: '#ffffff', fontWeight: '600' }}>Agendar horário</Text>
+                    </TouchableOpacity>
+                  </View>
                 )
               }
               return (
@@ -326,7 +378,7 @@ export default function AgendaTab() {
                   const timeChipBg = isFree ? '#fde7f3' : 'transparent'
                   const timeChipColor = isFree ? '#ec4899' : '#374151'
                   return (
-                    <TouchableOpacity disabled={!isFree} activeOpacity={1} onPress={() => { setPendingReserve(ev); setReserveServiceName(''); setReserveName(''); setReserveEmail(''); setReservePhone('') }} style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <TouchableOpacity disabled={!isFree} activeOpacity={1} onPress={() => { setPendingReserve(ev); setReserveService(null); setReserveName(''); setReserveEmail(''); setReservePhone('') }} style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={{ color: leftColor, fontSize: 13, flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">{serviceName}</Text>
                       </View>
@@ -344,18 +396,59 @@ export default function AgendaTab() {
             })()
           )}
         </View>
-        <Modal visible={!!pendingReserve} transparent animationType="fade" onRequestClose={() => setPendingReserve(null)}>
+        <Modal visible={!!pendingReserve} transparent animationType="none" onRequestClose={closeModal}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ width: '92%', backgroundColor: '#ffffff', borderRadius: 12, padding: 16, position: 'relative' }}>
+            <Animated.View style={[{ width: '92%', backgroundColor: '#ffffff', borderRadius: 12, padding: 16, position: 'relative' }, modalAnimatedStyle]}>
               {pendingReserve && (
                 <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontWeight: '600', fontSize: 16, marginBottom: 6 }}>Reserva</Text>
+                  <Text style={{ fontWeight: '600', fontSize: 16, marginBottom: 6 }}>Agendar horário</Text>
                   <Text style={{ color: '#6b7280' }}>das {new Date(pendingReserve.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} às {new Date(pendingReserve.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</Text>
                 </View>
               )}
               <View style={{ marginBottom: 8 }}>
                 <Text>Serviço</Text>
-                <TextInput value={reserveServiceName} onChangeText={setReserveServiceName} style={{ height: 36, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10 }} />
+                <View style={{ marginTop: 6 }}>
+                  <FlatList
+                    data={availableServices}
+                    keyExtractor={(item) => String(item.id)}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        onPress={() => setReserveService(item)}
+                        style={{ paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff' }}
+                      >
+                        <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#ec4899', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                          {reserveService?.id === item.id && (
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#ec4899' }} />
+                          )}
+                        </View>
+                        <Text style={{ color: '#111827', flex: 1 }}>{item.name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+                          {favServiceSet.has(String(item.id)) && (
+                            <View style={{ marginRight: 6, backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                              <Text style={{ color: '#f59e0b', fontSize: 12 }}>★</Text>
+                            </View>
+                          )}
+                          {((item.tags || []).includes('promocao')) ? (
+                            <>
+                              <View style={{ marginRight: 6, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                                <Text style={{ color: '#6b7280', fontSize: 12, textDecorationLine: 'line-through' }}>{formatCurrency(item.price_cents)}</Text>
+                              </View>
+                              <View style={{ backgroundColor: '#fde7f3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                                <Text style={{ color: '#ec4899', fontSize: 12 }}>{formatCurrency(promoPriceCents(item))}</Text>
+                              </View>
+                            </>
+                          ) : (
+                            <View style={{ backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                              <Text style={{ color: '#6b7280', fontSize: 12 }}>{formatCurrency(item.price_cents)}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    style={{ maxHeight: 220 }}
+                    showsVerticalScrollIndicator={false}
+                  />
+                </View>
               </View>
               <View style={{ marginBottom: 8 }}>
                 <Text>Nome completo</Text>
@@ -370,7 +463,7 @@ export default function AgendaTab() {
                 <TextInput value={reservePhone} onChangeText={onPhoneChange} keyboardType="phone-pad" style={{ height: 36, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 10 }} />
               </View>
               {(() => {
-                const matched = Object.values(servicesMap).find((s) => s.name.toLowerCase() === reserveServiceName.trim().toLowerCase())
+                const matched = reserveService
                 const valid = Boolean(matched && reserveName.trim().length >= 3 && isEmailValid(reserveEmail) && reservePhone.replace(/\D/g, '').length >= 10)
                 const onMark = async () => {
                   try {
@@ -381,21 +474,21 @@ export default function AgendaTab() {
                       slot_id: pendingReserve.id,
                       status: 'confirmed',
                     })
-                    setPendingReserve(null)
+                    closeModal()
                   } catch {}
                 }
                 return (
                   <View>
                     <TouchableOpacity disabled={!valid} onPress={onMark} style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: valid ? '#ec4899' : '#fde7f3', borderRadius: 10 }}>
-                      <Text style={{ color: valid ? '#ffffff' : '#ec4899', fontWeight: '600', textAlign: 'center' }}>Reservar</Text>
+                      <Text style={{ color: valid ? '#ffffff' : '#ec4899', fontWeight: '600', textAlign: 'center' }}>Agendar</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setPendingReserve(null)} style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f3f4f6', borderRadius: 10 }}>
+                    <TouchableOpacity onPress={closeModal} style={{ marginTop: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#f3f4f6', borderRadius: 10 }}>
                       <Text style={{ color: '#111827', textAlign: 'center' }}>Cancelar</Text>
                     </TouchableOpacity>
                   </View>
                 )
               })()}
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       </View>

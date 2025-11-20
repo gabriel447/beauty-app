@@ -59,13 +59,15 @@ function createMock(): any {
 
   const builder: any = {
     _table: '',
-    _filters: [] as { type: 'eq' | 'gte' | 'contains'; col: string; val: any }[],
+    _filters: [] as { type: 'eq' | 'gte' | 'lte' | 'contains' | 'in'; col: string; val: any }[],
     select() { return this },
     order() { return this },
     eq(col: string, val: any) { this._filters.push({ type: 'eq', col, val }); return this },
     gte(col: string, val: any) { this._filters.push({ type: 'gte', col, val }); return this },
+    lte(col: string, val: any) { this._filters.push({ type: 'lte', col, val }); return this },
     limit() { return this },
     contains(col: string, val: any) { this._filters.push({ type: 'contains', col, val }); return this },
+    in(col: string, val: any[]) { this._filters.push({ type: 'in', col, val }); return this },
     single() { return this },
     insert(payload: any) { return Promise.resolve({ data: payload, error: null }) },
     update(payload: any) { return Promise.resolve({ data: payload, error: null }) },
@@ -75,7 +77,9 @@ function createMock(): any {
       for (const f of this._filters) {
         if (f.type === 'eq') data = data.filter((r: any) => String(r[f.col]) === String(f.val))
         else if (f.type === 'gte') data = data.filter((r: any) => new Date(r[f.col]).getTime() >= new Date(f.val).getTime())
+        else if (f.type === 'lte') data = data.filter((r: any) => new Date(r[f.col]).getTime() <= new Date(f.val).getTime())
         else if (f.type === 'contains') data = data.filter((r: any) => (r[f.col] || []).some((x: any) => (f.val || []).includes(x)))
+        else if (f.type === 'in') data = data.filter((r: any) => (f.val || []).map(String).includes(String(r[f.col])))
       }
       resolve({ data, error: null })
     },
