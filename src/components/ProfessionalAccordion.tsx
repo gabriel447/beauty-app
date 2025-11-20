@@ -48,7 +48,7 @@ export default function ProfessionalAccordion({ professional, servicesByName, on
               >
                 <Text style={{ fontSize: 15 }}>{name}</Text>
                 {svc ? (
-                  <Text style={{ color: '#6b7280' }}>R$ {(svc.price_cents / 100).toFixed(2).replace('.', ',')}</Text>
+                  <Text style={{ color: '#6b7280' }}>{Math.round(svc.duration_min)} min</Text>
                 ) : (
                   <Text style={{ color: '#6b7280' }}>—</Text>
                 )}

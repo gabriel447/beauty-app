@@ -490,11 +490,6 @@ export default function AgendaTab() {
                         </View>
                         <Text style={{ color: '#111827', flex: 1 }}>{item.name}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
-                          {favServiceSet.has(String(item.id)) && (
-                            <View style={{ marginRight: 6, backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                              <Text style={{ color: '#f59e0b', fontSize: 12 }}>★</Text>
-                            </View>
-                          )}
                           {((item.tags || []).includes('promocao')) ? (
                             <>
                               <View style={{ marginRight: 6, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>

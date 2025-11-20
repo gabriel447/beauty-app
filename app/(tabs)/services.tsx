@@ -39,12 +39,6 @@ export default function ServicesTab() {
       setFavorites(new Set(next))
     } catch {}
   }
-  const formatCurrency = (cents: number) => `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`
-  const promoPriceCents = (s: Service) => {
-    const hasPromo = (s.tags || []).includes('promocao')
-    const discount = hasPromo ? 0.2 : 0
-    return Math.round(s.price_cents * (1 - discount))
-  }
   const balloonTags = new Set(['popular', 'novo', 'promocao'])
   const services = [...allServices].sort((a, b) => {
     const balA = (a.tags || []).some((t) => balloonTags.has(t)) ? 0 : 1
@@ -71,20 +65,9 @@ export default function ServicesTab() {
             </TouchableOpacity>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, flexWrap: 'nowrap' }}>
               <Text style={{ fontSize: 14, fontWeight: '500', flexShrink: 1, marginRight: 8, maxWidth: '55%' }} numberOfLines={1} ellipsizeMode="tail">{item.name}</Text>
-              {((item.tags || []).includes('promocao')) ? (
-                <>
-                  <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                    <Text style={{ color: '#6b7280', fontSize: 12, textDecorationLine: 'line-through' }}>{formatCurrency(item.price_cents)}</Text>
-                  </View>
-                  <View style={{ marginRight: 8, backgroundColor: '#fde7f3', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                    <Text style={{ color: '#ec4899', fontSize: 12 }}>{formatCurrency(promoPriceCents(item))}</Text>
-                  </View>
-                </>
-              ) : (
-                <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
-                  <Text style={{ color: '#6b7280', fontSize: 12 }}>{formatCurrency(item.price_cents)}</Text>
-                </View>
-              )}
+              <View style={{ marginRight: 8, backgroundColor: '#f3f4f6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9999 }}>
+                <Text style={{ color: '#6b7280', fontSize: 12 }}>{Math.round(item.duration_min)} min</Text>
+              </View>
               {(() => {
                 const display = displayTagById[String(item.id)]
                 if (display === 'popular') {
