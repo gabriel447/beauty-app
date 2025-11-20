@@ -263,6 +263,12 @@ export default function AgendaTab() {
   const firstDay = new Date(year, monthCursor.getMonth(), 1)
   const startWeekday = firstDay.getDay() // 0-6
   const daysInMonth = new Date(year, monthCursor.getMonth() + 1, 0).getDate()
+  const today = new Date(); today.setHours(0,0,0,0)
+  const todayYear = today.getFullYear()
+  const todayMonth = today.getMonth()
+  const todayDay = today.getDate()
+  const isCurrentMonth = year === todayYear && monthCursor.getMonth() === todayMonth
+  const canGoPrev = new Date(year, monthCursor.getMonth(), 1) > new Date(todayYear, todayMonth, 1)
   const daysArray = Array.from({ length: startWeekday + daysInMonth }, (_, i) => i < startWeekday ? null : i - startWeekday + 1)
 
   const upcomingForSelectedDay = useMemo(() => {
@@ -375,8 +381,8 @@ export default function AgendaTab() {
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 }}>
-            <TouchableOpacity onPress={() => setMonthCursor(new Date(year, monthCursor.getMonth() - 1, 1))}>
-              <Text style={{ fontSize: 18, color: '#ec4899' }}>{'‹'}</Text>
+            <TouchableOpacity onPress={() => { if (canGoPrev) setMonthCursor(new Date(year, monthCursor.getMonth() - 1, 1)) }}>
+              <Text style={{ fontSize: 18, color: canGoPrev ? '#ec4899' : '#d1d5db' }}>{'‹'}</Text>
             </TouchableOpacity>
             <Text style={{ marginHorizontal: 12, fontSize: 16, fontWeight: '600', textTransform: 'capitalize' }}>{monthName} {year}</Text>
             <TouchableOpacity onPress={() => setMonthCursor(new Date(year, monthCursor.getMonth() + 1, 1))}>
@@ -389,13 +395,21 @@ export default function AgendaTab() {
             ))}
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {daysArray.map((day, idx) => day === null ? (
-              <View key={idx} style={{ width: '14.285%', height: 36 }} />
-            ) : (
-              <TouchableOpacity key={idx} style={{ width: '14.285%', height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: selectedDate.getDate() === day && selectedDate.getMonth() === monthCursor.getMonth() ? '#f9a8d4' : 'transparent' }} onPress={() => setSelectedDate(new Date(year, monthCursor.getMonth(), day))}>
-                <Text style={{ color: '#111827' }}>{day}</Text>
-              </TouchableOpacity>
-            ))}
+            {daysArray.map((day, idx) => {
+              if (day === null) return (<View key={idx} style={{ width: '14.285%', height: 36 }} />)
+              const isDisabled = isCurrentMonth && day < todayDay
+              const isSelected = selectedDate.getDate() === day && selectedDate.getMonth() === monthCursor.getMonth()
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  disabled={isDisabled}
+                  style={{ width: '14.285%', height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: isSelected ? '#f9a8d4' : 'transparent' }}
+                  onPress={() => setSelectedDate(new Date(year, monthCursor.getMonth(), day))}
+                >
+                  <Text style={{ color: isDisabled ? '#9ca3af' : '#111827' }}>{day}</Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
         </View>
         <View style={{ flex: 1, marginTop: 16, paddingTop: 12, paddingHorizontal: 16, backgroundColor: '#f3f4f6', borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
