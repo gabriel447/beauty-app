@@ -1,5 +1,5 @@
 import { Link } from 'expo-router'
-import { View, Text, Image, TouchableOpacity } from 'react-native'
+import { View, Text, Image, TouchableOpacity, DeviceEventEmitter } from 'react-native'
 import { useEffect, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Professional } from '@/types'
@@ -29,6 +29,7 @@ export default function ProfessionalCard({ professional, onPress, showFavorite =
       set.has(id) ? set.delete(id) : set.add(id)
       await AsyncStorage.setItem('favorites_professionals', JSON.stringify(Array.from(set)))
       setFavorite((v) => !v)
+      DeviceEventEmitter.emit('favorites_professionals_updated')
     } catch {}
   }
   return (

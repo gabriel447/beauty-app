@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal, TextInput, Platform, ActionSheetIOS, Animated, Easing } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal, TextInput, Platform, ActionSheetIOS, Animated, Easing, DeviceEventEmitter, AppState } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { AvailabilitySlot, Professional, Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -88,6 +88,50 @@ export default function AgendaTab() {
       if (!selected && rows.length > 0) setSelected(rows[0])
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('favorites_professionals_updated', async () => {
+      try {
+        const raw = await AsyncStorage.getItem('favorites_professionals')
+        const favs = new Set(((raw ? JSON.parse(raw) : []) as string[]).map(String))
+        setFavSet(favs)
+        setProfessionals((prev) => {
+          const rows = [...prev]
+          rows.sort((a, b) => {
+            const fa = favs.has(String(a.id)) ? 0 : 1
+            const fb = favs.has(String(b.id)) ? 0 : 1
+            if (fa !== fb) return fa - fb
+            return a.name.localeCompare(b.name)
+          })
+          return rows
+        })
+      } catch {}
+    })
+    return () => sub.remove()
+  }, [])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state === 'active') {
+        try {
+          const raw = await AsyncStorage.getItem('favorites_professionals')
+          const favs = new Set(((raw ? JSON.parse(raw) : []) as string[]).map(String))
+          setFavSet(favs)
+          setProfessionals((prev) => {
+            const rows = [...prev]
+            rows.sort((a, b) => {
+              const fa = favs.has(String(a.id)) ? 0 : 1
+              const fb = favs.has(String(b.id)) ? 0 : 1
+              if (fa !== fb) return fa - fb
+              return a.name.localeCompare(b.name)
+            })
+            return rows
+          })
+        } catch {}
+      }
+    })
+    return () => sub.remove()
   }, [])
 
   useEffect(() => {
@@ -271,7 +315,7 @@ export default function AgendaTab() {
         {openSelector && (
           <View style={{ marginTop: 8, maxHeight: Math.min(300, Math.round(Dimensions.get('window').height * 0.45)), borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <FlatList
-              data={professionals}
+              data={professionals.filter((p) => String(p.id) !== String(selected?.id))}
               keyExtractor={(item) => String(item.id)}
               renderItem={({ item }) => {
                 const fav = favSet.has(String(item.id))
