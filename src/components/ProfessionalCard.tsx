@@ -26,7 +26,12 @@ export default function ProfessionalCard({ professional, onPress, showFavorite =
       const arr: string[] = raw ? JSON.parse(raw) : []
       const set = new Set(arr)
       const id = String(professional.id)
-      set.has(id) ? set.delete(id) : set.add(id)
+      if (set.has(id)) {
+        set.delete(id)
+      } else {
+        set.add(id)
+        await AsyncStorage.setItem('last_favorite_professional', id)
+      }
       await AsyncStorage.setItem('favorites_professionals', JSON.stringify(Array.from(set)))
       setFavorite((v) => !v)
       DeviceEventEmitter.emit('favorites_professionals_updated')

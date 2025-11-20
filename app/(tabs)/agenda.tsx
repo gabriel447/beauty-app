@@ -85,7 +85,12 @@ export default function AgendaTab() {
         return a.name.localeCompare(b.name)
       })
       setProfessionals(rows)
-      if (!selected && rows.length > 0) setSelected(rows[0])
+      if (!selected && rows.length > 0) {
+        const last = await AsyncStorage.getItem('last_favorite_professional')
+        const lastId = last ? String(last) : ''
+        const preferred = lastId && favs.has(lastId) ? rows.find((p) => String(p.id) === lastId) : undefined
+        setSelected(preferred || rows[0])
+      }
     }
     load()
   }, [])
@@ -106,6 +111,15 @@ export default function AgendaTab() {
           })
           return rows
         })
+        const last = await AsyncStorage.getItem('last_favorite_professional')
+        const lastId = last ? String(last) : ''
+        if (lastId && favs.has(lastId)) {
+          setProfessionals((list) => {
+            const prof = list.find((p) => String(p.id) === lastId)
+            if (prof) setSelected(prof)
+            return list
+          })
+        }
       } catch {}
     })
     return () => sub.remove()
@@ -128,6 +142,15 @@ export default function AgendaTab() {
             })
             return rows
           })
+          const last = await AsyncStorage.getItem('last_favorite_professional')
+          const lastId = last ? String(last) : ''
+          if (lastId && favs.has(lastId)) {
+            setProfessionals((list) => {
+              const prof = list.find((p) => String(p.id) === lastId)
+              if (prof) setSelected(prof)
+              return list
+            })
+          }
         } catch {}
       }
     })
