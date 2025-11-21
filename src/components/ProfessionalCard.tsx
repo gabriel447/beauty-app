@@ -67,7 +67,7 @@ export default function ProfessionalCard({ professional, onPress, showFavorite =
         </View>
       </TouchableOpacity>
     ) : (
-      <Link href={{ pathname: `/professionals/${professional.id}` }} asChild>
+      <Link href={{ pathname: 'professionals/[id]', params: { id: String(professional.id) } }} asChild>
         <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
           {showFavorite && (
             <TouchableOpacity onPress={toggleFavorite} style={{ marginRight: 10 }}>

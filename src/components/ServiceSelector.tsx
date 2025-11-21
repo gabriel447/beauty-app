@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, FlatList, TextInput } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { supabase } from '@/lib/supabase'
+import { services as demoServices } from '@/lib/demoData'
 import { Service } from '@/types'
 
 type Props = {
@@ -23,11 +23,7 @@ export default function ServiceSelector({ value, onChange, showSearch = true, sh
     return `R$ ${value.toFixed(2).replace('.', ',')}`
   }
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from('services').select('*').order('name')
-      setServices(data || [])
-    }
-    load()
+    setServices(demoServices as any)
   }, [])
   useEffect(() => {
     const loadFavs = async () => {

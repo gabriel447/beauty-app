@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, FlatList, TouchableOpacity, Dimensions, Image, Modal, TextInput, Platform, ActionSheetIOS, Animated, Easing, DeviceEventEmitter, AppState } from 'react-native'
-import { supabase } from '@/lib/supabase'
+import { professionals as demoProfessionals, services as demoServices } from '@/lib/demoData'
 import { AvailabilitySlot, Professional, Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
  
@@ -68,7 +68,7 @@ export default function AgendaTab() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from('professionals').select('*')
+      const data: any = demoProfessionals
       const raw = await AsyncStorage.getItem('favorites_professionals')
       const favs = new Set(((raw ? JSON.parse(raw) : []) as string[]).map(String))
       setFavSet(favs)
@@ -158,13 +158,9 @@ export default function AgendaTab() {
   }, [])
 
   useEffect(() => {
-    const loadServices = async () => {
-      const { data } = await supabase.from('services').select('*')
-      const map: Record<string, Service> = {};
-      (data || []).forEach((s: any) => { map[String(s.id)] = s as Service })
-      setServicesMap(map)
-    }
-    loadServices()
+    const map: Record<string, Service> = {}
+    ;(demoServices as any).forEach((s: any) => { map[String(s.id)] = s as Service })
+    setServicesMap(map)
   }, [])
 
   useEffect(() => {
@@ -209,53 +205,13 @@ export default function AgendaTab() {
 
   useEffect(() => {
     if (!selected) return
-    const loadSlots = async () => {
-      const { data } = await supabase
-        .from('availability_slots')
-        .select('*')
-        .eq('professional_id', selected.id)
-        .gte('start_time', new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0).toISOString())
-      .lte('start_time', new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59).toISOString())
-      .order('start_time')
-      setSlots((data || []) as AvailabilitySlot[])
-    }
-    loadSlots()
-    const channel = supabase
-      .channel(`agenda_${selected.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_slots', filter: `professional_id=eq.${selected.id}` }, (payload: any) => {
-        setSlots((prev) => {
-          const next = [...prev]
-          const newSlot = payload.new as any
-          const oldSlot = payload.old as any
-          if (payload.eventType === 'INSERT') {
-            const d = new Date(newSlot.start_time)
-            if (d.toDateString() === selectedDate.toDateString()) next.push(newSlot)
-          } else if (payload.eventType === 'UPDATE') {
-            const idx = next.findIndex((s) => s.id === newSlot.id)
-            if (idx >= 0) next[idx] = newSlot
-          } else if (payload.eventType === 'DELETE') {
-            return next.filter((s) => s.id !== oldSlot?.id)
-          }
-          return next.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-        })
-      })
-    channel.subscribe()
-    return () => { channel.unsubscribe() }
-  }, [selected, selectedDate])
+    const key = `${selected.id}:${selectedDate.toDateString()}`
+    const mock = mockSlotsByProfDate[key]
+    setSlots((mock || []) as AvailabilitySlot[])
+  }, [selected, selectedDate, mockSlotsByProfDate])
 
   useEffect(() => {
-    if (slots.length === 0) { setBookingsBySlot({}); return }
-    const loadBookings = async () => {
-      const ids = slots.map((s) => s.id)
-      const { data } = await supabase
-        .from('bookings')
-        .select('id, service_id, slot_id, status')
-        .in('slot_id', ids)
-      const map: Record<string, any> = {}
-      ;(data || []).forEach((b: any) => { map[String(b.slot_id)] = b })
-      setBookingsBySlot(map)
-    }
-    loadBookings()
+    setBookingsBySlot({})
   }, [slots])
 
   const monthName = useMemo(() => monthCursor.toLocaleString('pt-BR', { month: 'long' }), [monthCursor])
@@ -542,16 +498,8 @@ export default function AgendaTab() {
                 const matched = reserveService
                 const valid = Boolean(matched && reserveName.trim().length >= 3 && isEmailValid(reserveEmail) && reservePhone.replace(/\D/g, '').length >= 10)
                 const onMark = async () => {
-                  try {
-                    if (!pendingReserve || !matched || !selected) return
-                    await supabase.from('bookings').insert({
-                      service_id: matched.id,
-                      professional_id: selected.id,
-                      slot_id: pendingReserve.id,
-                      status: 'confirmed',
-                    })
-                    closeModal()
-                  } catch {}
+                  if (!pendingReserve || !matched || !selected) return
+                  closeModal()
                 }
                 return (
                   <View>

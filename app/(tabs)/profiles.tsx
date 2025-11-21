@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react'
 import { View, FlatList } from 'react-native'
-import { supabase } from '@/lib/supabase'
+import { professionals } from '@/lib/demoData'
 import ProfessionalCard from '@/components/ProfessionalCard'
 import { Professional } from '@/types'
 
 export default function Profiles() {
   const [data, setData] = useState<Professional[]>([])
   useEffect(() => {
-    const load = async () => {
-      const { data: rows } = await supabase.from('professionals').select('*')
-      setData(rows || [])
-    }
-    load()
+    setData(professionals as any)
   }, [])
   return (
     <View style={{ flex: 1, backgroundColor: '#ffffff' }}>

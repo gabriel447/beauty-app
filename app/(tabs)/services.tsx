@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, FlatList, TouchableOpacity } from 'react-native'
-import { supabase } from '@/lib/supabase'
+import { services as demoServices } from '@/lib/demoData'
 import { Service } from '@/types'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
@@ -8,12 +8,7 @@ export default function ServicesTab() {
   const [allServices, setAllServices] = useState<Service[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from('services').select('*')
-      const rows = (data || []) as Service[]
-      setAllServices(rows)
-    }
-    load()
+    setAllServices(demoServices as any)
   }, [])
 
   useEffect(() => {

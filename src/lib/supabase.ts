@@ -60,6 +60,7 @@ function createMock(): any {
   const builder: any = {
     _table: '',
     _filters: [] as { type: 'eq' | 'gte' | 'lte' | 'contains' | 'in'; col: string; val: any }[],
+    _single: false,
     select() { return this },
     order() { return this },
     eq(col: string, val: any) { this._filters.push({ type: 'eq', col, val }); return this },
@@ -68,7 +69,7 @@ function createMock(): any {
     limit() { return this },
     contains(col: string, val: any) { this._filters.push({ type: 'contains', col, val }); return this },
     in(col: string, val: any[]) { this._filters.push({ type: 'in', col, val }); return this },
-    single() { return this },
+    single() { this._single = true; return this },
     insert(payload: any) { return Promise.resolve({ data: payload, error: null }) },
     update(payload: any) { return Promise.resolve({ data: payload, error: null }) },
     then(resolve: any) {
@@ -81,7 +82,7 @@ function createMock(): any {
         else if (f.type === 'contains') data = data.filter((r: any) => (r[f.col] || []).some((x: any) => (f.val || []).includes(x)))
         else if (f.type === 'in') data = data.filter((r: any) => (f.val || []).map(String).includes(String(r[f.col])))
       }
-      resolve({ data, error: null })
+      resolve({ data: this._single ? (data[0] || null) : data, error: null })
     },
   }
   const channel = {
@@ -90,7 +91,7 @@ function createMock(): any {
     unsubscribe() {},
   }
   return {
-    from(table: string) { builder._table = table; builder._filters = []; return builder },
+    from(table: string) { builder._table = table; builder._filters = []; builder._single = false; return builder },
     channel() { return channel },
   }
 }

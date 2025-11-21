@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TouchableOpacity, FlatList } from 'react-native'
-import { supabase } from '@/lib/supabase'
+import { View, Text, TouchableOpacity } from 'react-native'
+import { availability_slots } from '@/lib/demoData'
 import { AvailabilitySlot } from '@/types'
 
 type Props = {
@@ -11,32 +11,12 @@ type Props = {
 export default function RealtimeSchedule({ professionalId, onSelectSlot }: Props) {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('availability_slots')
-        .select('*')
-        .eq('professional_id', professionalId)
-        .gte('start_time', new Date().toISOString())
-        .limit(100)
-      setSlots(data || [])
-    }
-    load()
-    const channel = supabase
-      .channel(`availability_slots_${professionalId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'availability_slots', filter: `professional_id=eq.${professionalId}` }, (payload: any) => {
-        setSlots((prev) => {
-          const next = [...prev]
-          const idx = next.findIndex((s) => s.id === (payload.new as any)?.id)
-          if (payload.eventType === 'INSERT') next.unshift(payload.new as any)
-          else if (payload.eventType === 'UPDATE' && idx >= 0) next[idx] = payload.new as any
-          else if (payload.eventType === 'DELETE') return prev.filter((s) => s.id !== (payload.old as any)?.id)
-          return next
-        })
-      })
-    channel.subscribe()
-    return () => {
-      channel.unsubscribe()
-    }
+    const now = new Date()
+    const data = availability_slots
+      .filter((s) => String(s.professional_id) === String(professionalId))
+      .filter((s) => new Date(s.start_time).getTime() >= now.getTime())
+      .slice(0, 100)
+    setSlots(data as any)
   }, [professionalId])
 
   const renderItem = ({ item }: { item: AvailabilitySlot }) => {
@@ -57,13 +37,12 @@ export default function RealtimeSchedule({ professionalId, onSelectSlot }: Props
   }
 
   return (
-    <View>
-      <FlatList
-        data={slots}
-        keyExtractor={(s) => String(s.id)}
-        numColumns={3}
-        renderItem={renderItem}
-      />
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      {slots.map((s) => (
+        <View key={String(s.id)} style={{ width: '33.333%' }}>
+          {renderItem({ item: s })}
+        </View>
+      ))}
     </View>
   )
 }
